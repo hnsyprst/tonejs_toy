@@ -1,0 +1,213 @@
+<html>
+    <head>
+        <title>
+            Webapp
+        </title>
+        <script src="js/unmute-v013.js" data-add-button="true"></script>
+        <script src="js/tone-v13.js"></script>
+        <script src="js/nexusUI-v1.js"></script>
+    </head>
+    <body>
+        <div id="loopsArea">
+            
+        </div>
+        <div id="controlsArea">
+            <canvas nx="dial" id="filterDial"></canvas>
+            <canvas nx="dial" id="lfoDial"></canvas>    
+            <canvas nx="dial" id="delayDial"></canvas>          
+            <canvas nx="dial" id="reverbDial"></canvas>
+        </div>
+        
+        <div id="padArea">
+            <canvas nx="slider" id="volumeSlider"></canvas>
+            <canvas nx="position" id="inputPad"></canvas>
+        </div>
+        
+        <script>            
+            // set track bpm
+            Tone.Transport.bpm.value = 120;
+            Tone.Transport.start();
+                        
+            // get controlsArea div from DOM
+            var controls = document.getElementById("loopsArea");
+            
+            var createNewButton = function(name, measure, destination) {
+                var isPlaying = false;
+                
+                // initialise sample
+                var sampleHolder = new Tone.Player("/loops/" + name + ".mp3");
+                sampleHolder.connect(Tone.Master);
+                
+                // initialise sample player
+                var samplePlayer = function(event) {
+                    console.log("playing " + name);
+                    sampleHolder.start();
+                }
+                
+                // initialise loop
+                var loopHolder = new Tone.Loop(samplePlayer, measure);
+                
+                // handle button presses
+                var buttonHandler = function() {
+                    console.log("button " + name + " was clicked");
+                    console.log(isPlaying);
+                    if(isPlaying == false) {
+                        loopHolder.start(0);
+                        console.log(name + " loop started");
+                        isPlaying = true;
+                    }
+                    else {
+                        loopHolder.stop();
+                        console.log(name + " loop stopped");
+                        isPlaying = false;
+                    }
+                }.bind(this);
+                
+                // initialise button
+                var loopButton = document.createElement("button");
+                controls.appendChild(loopButton);
+                loopButton.innerHTML = name;
+                loopButton.addEventListener("click", buttonHandler);
+                console.log(isPlaying);
+            };
+            
+            var loops = [{name      : "kick",
+                          measure   : "2m"
+                         },
+                         {name      : "hat",
+                          measure   : "2m"
+                         },
+                         {name      : "snare",
+                          measure   : "2m"
+                         },
+                         {name      : "clave",
+                          measure   : "2m"
+                         },
+                         {name      : "bass",
+                          measure   : "4m"
+                         },
+                         {name      : "2bass",
+                          measure   : "16m"
+                         },
+                         {name      : "pad",
+                          measure   : "8m"
+                         },
+                         {name      : "lead",
+                          measure   : "8m"
+                         }
+                        ];
+            
+            for (var i = 0; i < loops.length; i++) {
+                createNewButton(loops[i].name, loops[i].measure, controls);
+            };
+                                    
+            // initialise synth and effect components
+            var reverb = new Tone.Reverb();
+            reverb.connect(Tone.Master);
+            
+            var feedbackDelay = new Tone.FeedbackDelay("8n", 0.5);
+            feedbackDelay.connect(reverb);
+            
+            var vol = new Tone.Volume(-18);
+            vol.connect(feedbackDelay);
+            
+            var ampEnvelope = new Tone.AmplitudeEnvelope();
+            ampEnvelope.attack = 0.1;
+            ampEnvelope.decay = 0;
+            ampEnvelope.sustain = 0.5;
+            ampEnvelope.release = 0.8;
+            ampEnvelope.connect(vol);
+            
+            var filter = new Tone.Filter();
+            filter.type = "lowpass";
+            filter.Q = 10;
+            filter.connect(ampEnvelope);
+            
+            var oscillator = new Tone.Oscillator();
+            oscillator.type = "sawtooth";
+            oscillator.connect(filter);
+            oscillator.start();
+                        
+            var lfo = new Tone.LFO("4n", 0, 10);
+            lfo.connect(oscillator.volume);
+            lfo.start();
+                        
+            // handle nx initialisation
+            nx.onload = function() {
+                // initialise filter dial
+                filterDial.min = 0.0;
+                filterDial.max = 1.0;
+                filterDial.val.value = 0.2;
+                filterDial.init();
+                
+                // event listener for filter dial
+                filterDial.on("*", function(nexusData){
+                    filter.frequency.value = (nexusData.value * 1000) + 200;
+                });
+                
+                // initialise lfo dial
+                lfoDial.min = 0.0;
+                lfoDial.max = 1.0;
+                lfoDial.val.value = 0.2;
+                lfoDial.init();
+
+                // event listener for lfo dial
+                lfoDial.on("*", function(nexusData){
+                    lfo.amplitude.value = nexusData.value;
+                });
+                
+                // initialise delay dial
+                delayDial.min = 0.0;
+                delayDial.max = 1.0;
+                delayDial.val.value = 0.2;
+                delayDial.init();
+
+                // event listener for delay dial
+                delayDial.on("*", function(nexusData){
+                    feedbackDelay.wet.value = nexusData.value;
+                });
+                
+                // initialise reverb dial
+                reverbDial.min = 0.0;
+                reverbDial.max = 1.0;
+                reverbDial.val.value = 0.2;
+                reverbDial.init();
+
+                // event listener for reverb dial
+                reverbDial.on("*", function(nexusData){
+                    reverb.wet.value = nexusData.value;
+                });
+                
+                // set the min/max range for amplitude control
+                volumeSlider.val.value = 0.2;
+                volumeSlider.init();
+                
+                /*volumeSlider.on("*", function(nexusData){
+                    vol.volume.value = (nexusData.value * 2) - 18;
+                    console.log("volume " + vol.volume.value);
+                });*/
+                
+                // event listener for xypad
+                inputPad.on("*", function(nexusData){
+                    var inputPad_x = nexusData.x;
+                    var inputPad_y = nexusData.y;
+                    var inputPad_state = nexusData.state;
+                                                            
+                    if(inputPad_state == "click"){
+                        ampEnvelope.triggerAttack();
+                    }
+                    else if(inputPad_state == "release"){
+                        ampEnvelope.triggerRelease();
+                    }
+                    
+                    oscillator.frequency.value = (inputPad_x * 440) + 440;
+                    lfo.frequency.value = (inputPad_y * 5) + 1;
+                    
+                    console.log(inputPad_x);
+                    console.log(inputPad_y);
+                    console.log(inputPad_state);
+                });
+            }
+        </script>
+    </body>
+</html>
