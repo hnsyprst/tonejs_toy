@@ -100,10 +100,16 @@
             for (var i = 0; i < loops.length; i++) {
                 createNewButton(loops[i].name, loops[i].measure, controls);
             };
-            
+                                    
             // initialise synth and effect components
+            var reverb = new Tone.Reverb();
+            reverb.connect(Tone.Master);
+            
+            var feedbackDelay = new Tone.FeedbackDelay("8n", 0.5);
+            feedbackDelay.connect(reverb);
+            
             var vol = new Tone.Volume(-18);
-            vol.connect(Tone.Master);
+            vol.connect(feedbackDelay);
             
             var ampEnvelope = new Tone.AmplitudeEnvelope();
             ampEnvelope.attack = 0.1;
@@ -148,6 +154,28 @@
                 // event listener for lfo dial
                 lfoDial.on("*", function(nexusData){
                     lfo.amplitude.value = nexusData.value;
+                });
+                
+                // initialise delay dial
+                delayDial.min = 0.0;
+                delayDial.max = 1.0;
+                delayDial.val.value = 0.2;
+                delayDial.init();
+
+                // event listener for delay dial
+                delayDial.on("*", function(nexusData){
+                    feedbackDelay.wet.value = nexusData.value;
+                });
+                
+                // initialise reverb dial
+                reverbDial.min = 0.0;
+                reverbDial.max = 1.0;
+                reverbDial.val.value = 0.2;
+                reverbDial.init();
+
+                // event listener for reverb dial
+                reverbDial.on("*", function(nexusData){
+                    reverb.wet.value = nexusData.value;
                 });
                 
                 // set the min/max range for amplitude control
